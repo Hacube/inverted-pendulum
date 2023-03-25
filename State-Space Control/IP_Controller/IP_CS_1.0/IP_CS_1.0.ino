@@ -11,6 +11,9 @@ const float m_pend = m_motor + m_length;
 const float wt = 0.01;                         
 const float radius_motor = 0.01;                
 const float g = 9.81;  
+const float Im = 2/5*m_motor*pow(radius_motor, 2) + m_motor*pow((L+radius_motor), 2); //motor mass moment of inertia
+const float Is = 1/3*m_length*pow(L, 2) + Im;                                         //pendulum mass moment of inertia
+const float Ir = 1/2*m_wheel*(pow(r_wheel, 2) + pow((r_wheel - wt), 2));              //wheel mass moment of inertia
 
 // motor parameters
 const float rated_voltage = 12;                 
@@ -27,23 +30,19 @@ const float Kv = rated_speed / rated_voltage;
 // LQR Gains ~ need to define values
 float K1 = 0.2;
 float K2 = 0.2;
-float K3 = 0.2;
-float K4 = 0.5;
 
-const float K[4] = {K1, K2, K3, K4}; // k matrice
+const float K[2] = {K1, K2}; // k matrice
 
 // state feedback controller variables
 float theta = 0;
 float theta_dot = 0;
-float phi = 0;
-float phi_dot = 0;
 
 // kalman filter variables
 float angle_estimate = 0;
 float angle_velocity_estimate = 0;
 float angle_variance = 1;
 float angle_velocity_variance = 1;
-float angle_measurement_variance = 0.01; // need to adjust
+float angle_measurement_variance = 0.01;    // need to adjust
 float angle_velocity_measurement_variance = 0.01; // need to adjust 
 float angle_kalman_gain = 0;
 float angle_velocity_kalman_gain = 0;
@@ -70,33 +69,19 @@ void setup() {
   // initialize motor control pin
   pinMode(motorPin, OUTPUT);
   analogWrite(motorPin, 0);
-  // need direction pin?
 
-  // kalman filter set up ~ need to change these values
-  angle_estimate = 0;
-  angle_velocity_estimate = 0;
-  angle_variance = 1;
-  angle_velocity_variance = 1;
 }
 
 void loop() {
+ 
   // read the IMU data
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
   
   float angle_measurement = euler.x() * DEG_TO_RAD;
   float angle_velocity_measurement = gyro.x() * DEG_TO_RAD;
-
- 
-  // apply torque to motor
-  // if (torque > 0) {
-  //  digitalWrite(dir_pin, HIGH);
-  //  analogWrite(pwm_pin, torque);
-  // } else {
-  //   digitalWrite(dir_pin, LOW);
-  //   analogWrite(pwm_pin, -torque);
- // }
-
+  float u = 0;
+  
   // kalman filter for angle
   angle_kalman_gain = angle_variance / (angle_variance + angle_measurement_variance);
   angle_estimate = angle_estimate + angle_kalman_gain * (angle_measurement - angle_estimate);
@@ -111,11 +96,15 @@ void loop() {
   theta = angle_estimate;
   theta_dot = angle_velocity_estimate;
 
-  // Calculate control input
-  float u = -K[0] * theta - K[1] * theta_dot - K[2] * phi - K[3] * phi_dot;
+  // calculate control input
+  float states[2][1] = {{theta},{theta_dot}};
+  
+  for (int i = 0; i < 2; i++) {
+    u += -K[i] * states[i][0];
+  }
   
   // convert torque to voltage
-  float voltage = u * armature_resistance / torque_constant;
+  float voltage = u * R / Kt;
 
   // clamp the voltage output ~ simulation should tell us this value 
   voltage = constrain(voltage, -motorMaxVoltage, motorMaxVoltage);
