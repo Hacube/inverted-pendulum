@@ -86,7 +86,7 @@ void loop() {
 
   // clamp the voltage output ~ simulation should tell us this value 
   voltage = constrain(voltage, -motorMaxVoltage, motorMaxVoltage);
-  int pwmOutput = (int) map(voltage, -motorMaxVoltage, motorMaxVoltage, 0, 180);
+  int pwmOutput = (int) map(voltage, -motorMaxVoltage, motorMaxVoltage, 0, 255); // issues with voltage control
   
   // output to control the motor
   analogWrite(motorPin, pwmOutput);
