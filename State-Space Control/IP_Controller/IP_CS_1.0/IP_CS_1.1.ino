@@ -44,6 +44,12 @@ float u = 0;
 int motorPin = 1;
 float motorMaxVoltage = 12; // our maximum voltage will be 6 or 12v
 
+// state-space matrices
+float A[3][3] = {{0, 1, 0}, {m_pend*g*L/Is, 0, Kt*Kt/(R*Is)},{0, 0, -Kt*Kt /(R*Ir)}};
+float B[3][1] = {{0},{-Kt/(R*Is)},{Kt/(R*Ir)}};
+float C[1][3] = {{1, 0, 0}};
+float D = 0;
+
 Adafruit_BNO055 bno = Adafruit_BNO055();
 
 void setup() {
@@ -58,40 +64,49 @@ void setup() {
   bno.setExtCrystalUse(true);
 
   pinMode(motorPin, OUTPUT); // initialize motor
-  analogWrite(motorPin, 0);
+  analogWrite(motorPin, 2);
  
-  // matrices
-  float A[3][3] = {{0, 1, 0}, {m_pend*g*L/Is, 0, Kt*Kt/(R*Is)},{0, 0, -Kt*Kt /(R*Ir)}};
-  float B[3][1] = {{0},{-Kt/(R*Is)},{Kt/(R*Ir)}};
-  float C[1][3] = {{1, 0, 0}};
-  float D = 0;
 }
 
 void loop() {
   // read the IMU data
+  readIMU(&theta, & theta_dot);
+  
+  // calc control input
+  calculateControlInput(K, theta, theta_dot, &u);
+  
+  // control motor
+  controlMotor(u);
+  printSerialMonitor(theta, theta_dot, u);
+}
+  void readIMU(float *theta, float *theta_dot) {
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
-  float theta = euler.x() * DEG_TO_RAD;
-  float theta_dot = gyro.x() * DEG_TO_RAD;
+  *theta = euler.x() * DEG_TO_RAD;
+  *theta_dot = gyro.x() * DEG_TO_RAD;
+}
+void calculateControlInput(float K[], float theta, float theta_dot, float *u) {
+    float states[2][1] = {{theta}, {theta_dot}};
+    *u = 0;
   
-  // calculate control input using LQR gain matrix
-  float states[2][1] = {{theta},{theta_dot}};
   for (int i = 0; i < 2; i++) {
-    u += -K[i] * states[i][0];
+    *u += -K[i] * states[i][0];
   }
-
+}
+void controlMotor(float u) {
   // convert torque to voltage
   float voltage = u * R / Kt;
 
   // clamp the voltage output ~ simulation should tell us this value 
   voltage = constrain(voltage, -motorMaxVoltage, motorMaxVoltage);
-  int pwmOutput = (int) map(voltage, -motorMaxVoltage, motorMaxVoltage, 0, 255); // issues with voltage control
+  int pwmOutput = (int) map(voltage, -motorMaxVoltage, motorMaxVoltage, 0, 180); // issues with voltage control
   
   // output to control the motor
   analogWrite(motorPin, pwmOutput);
-  
-  // print to serial monitor
+}
+
+void printSerialMonitor(float theta, float theta_dot, float u){
   Serial.print("Angle: ");
   Serial.print(theta);
   Serial.print(" rad\t");
@@ -102,5 +117,4 @@ void loop() {
   Serial.print(u);
   Serial.print(" V\t");
   Serial.println();
-
 }
