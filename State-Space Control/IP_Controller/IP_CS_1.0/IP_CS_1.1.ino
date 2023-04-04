@@ -40,15 +40,15 @@ float theta = 0;
 float theta_dot = 0;
 float u = 0;
 
-// motor setup
-int motorPin = 1;
-float motorMaxVoltage = 12; // our maximum voltage will be 6 or 12v
-
 // state-space matrices
 float A[3][3] = {{0, 1, 0}, {m_pend*g*L/Is, 0, Kt*Kt/(R*Is)},{0, 0, -Kt*Kt /(R*Ir)}};
 float B[3][1] = {{0},{-Kt/(R*Is)},{Kt/(R*Ir)}};
 float C[1][3] = {{1, 0, 0}};
 float D = 0;
+
+// motor setup
+int motorPin = 1;
+float motorMaxVoltage = 12; // our maximum voltage will be 6 or 12v
 
 Adafruit_BNO055 bno = Adafruit_BNO055();
 
