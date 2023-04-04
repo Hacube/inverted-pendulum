@@ -30,7 +30,7 @@ const float R = rated_voltage / I_stall;
 const float Kt = stall_torque * Resistor / rated_voltage;  
 const float Kv = rated_speed / rated_voltage;   
 
-// LQR Gains ~ need to define values
+// LQR Gains ~ need to solve the Riccati Equation to find "optimal" gain matrix... 
 float K1 = 0.2;
 float K2 = 0.2;
 float K[2] = {K1, K2}; // k matrice
